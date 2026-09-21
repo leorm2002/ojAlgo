@@ -24,4 +24,19 @@ public class PresolveTest extends OptimisationTests {
         TestUtils.assertStateInfeasible(result);
     }
 
+    /**
+     * A constraint that is, according to the feasibility threshold, redundand should not make the problem infeasible
+     */
+    @Test
+
+    void testGitHubIssue690() {
+
+        ExpressionsBasedModel model = ModelFileTest.makeModel("usersupplied", "GitHub690.ebm", false);
+
+        Result result = model.minimise();
+
+        TestUtils.assertStateNotLessThanFeasible(result);
+    }
+
+
 }

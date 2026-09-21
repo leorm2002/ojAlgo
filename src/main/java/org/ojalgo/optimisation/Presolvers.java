@@ -88,7 +88,7 @@ public abstract class Presolvers {
 
     /**
      * Calculates the min and max value of this expression based on the variables' individual bounds. Then
-     * compares those with the expression's bounds.
+     * compares those with the expression's bounds using the configured feasibility precision.
      */
     public static final ExpressionsBasedModel.Presolver REDUNDANT_CONSTRAINT = new ExpressionsBasedModel.Presolver(90) {
 
@@ -146,9 +146,9 @@ public abstract class Presolvers {
 
                 boolean upperRedundant = false;
                 if (upper != null) {
-                    if (min != null && min.compareTo(upper) > 0 && precision.common(upper, min) == null) {
+                    if (min != null && precision.isMoreThan(upper, min)) {
                         expression.setInfeasible();
-                    } else if (max != null && max.compareTo(upper) <= 0) {
+                    } else if (max != null && !precision.isMoreThan(upper, max)) {
                         upperRedundant = true;
                     }
                 } else {
@@ -157,9 +157,9 @@ public abstract class Presolvers {
 
                 boolean lowerRedundant = false;
                 if (lower != null) {
-                    if (max != null && max.compareTo(lower) < 0 && precision.common(lower, max) == null) {
+                    if (max != null && precision.isLessThan(lower, max)) {
                         expression.setInfeasible();
-                    } else if (min != null && min.compareTo(lower) >= 0) {
+                    } else if (min != null && !precision.isLessThan(lower, min)) {
                         lowerRedundant = true;
                     }
                 } else {
@@ -234,6 +234,15 @@ public abstract class Presolvers {
         @Override
         public boolean simplify(final Expression expression, final Set<IntIndex> remaining, final BigDecimal lower, final BigDecimal upper,
                 final NumberContext precision) {
+
+            // Constant rows must reach doCase0, which validates their compensated limits.
+            if (!remaining.isEmpty()) {
+                // Check if the constraint is actually valid before any case tightens variable bounds. A redundant constraint should not be treated
+                Presolvers.REDUNDANT_CONSTRAINT.simplify(expression, remaining, lower, upper, precision);
+                if (expression.isInfeasible() || expression.isRedundant()) {
+                    return false;
+                }
+            }
 
             switch (remaining.size()) {
                 case 0:
@@ -892,7 +901,7 @@ public abstract class Presolvers {
 
             int signum = lower.signum();
 
-            if (signum > 0) {
+            if (precision.isMoreThan(ZERO, lower)) {
 
                 expression.setInfeasible();
                 return false;
@@ -919,7 +928,7 @@ public abstract class Presolvers {
 
             int signum = upper.signum();
 
-            if (signum < 0) {
+            if (precision.isLessThan(ZERO, upper)) {
 
                 expression.setInfeasible();
                 return false;
